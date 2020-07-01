@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.android.volley.Request
 import com.android.volley.Response
@@ -12,6 +13,8 @@ import com.android.volley.toolbox.Volley
 import com.carfax.connect.model.AuthResponse
 import com.google.gson.Gson
 import kotlinx.android.synthetic.main.activity_main.*
+import org.json.JSONObject
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -36,7 +39,6 @@ class MainActivity : AppCompatActivity() {
                 request: WebResourceRequest?
             ): Boolean {
                 println("URL: " + request?.url.toString())
-                //Toast.makeText(this@MainActivity, request?.url.toString(), Toast.LENGTH_SHORT).show()
                 if(request?.url.toString().startsWith(redirectUri)){
                     val code = request?.url?.getQueryParameter("code");
                     fetchAccessToken(code!!)
@@ -53,7 +55,7 @@ class MainActivity : AppCompatActivity() {
         val request = object: StringRequest(Request.Method.POST, url,
             Response.Listener<String> { response ->
                 val authResponse = gson.fromJson(response, AuthResponse::class.java)
-                println("AuthResponse $authResponse")
+                println("AuthResponse ${authResponse.accessToken}")
                 authResponse.calculateExpiresAt()
                 fetchCarfaxData(authResponse.accessToken);
             },
@@ -78,17 +80,21 @@ class MainActivity : AppCompatActivity() {
         val url = "https://connect.carfax.com/v1/graphql"
         val request = object: StringRequest(Request.Method.POST, url,
             Response.Listener<String> { response ->
-                println("Carfax Data $response")
+                Toast.makeText(this@MainActivity,
+                    response.toString(),
+                    Toast.LENGTH_LONG).show()
             },
-            Response.ErrorListener { error ->  println("error ${error.localizedMessage}")}) {
+            Response.ErrorListener { error ->  println("error ${error.toString()}")}) {
 
             override fun getHeaders(): MutableMap<String, String> {
                 return mutableMapOf("Content-Type" to "application/json",
                                     "Authorization" to "Bearer $accessToken");
             }
 
-            override fun getParams(): MutableMap<String, String> {
-                return mutableMapOf("query" to connectQuery);
+            override fun getBody(): ByteArray {
+                val jsonBody = JSONObject()
+                jsonBody.put("query", connectQuery)
+                return jsonBody.toString().toByteArray(Charsets.UTF_8);
             }
         }
         queue.add(request)
